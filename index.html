@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Boshqaruv Paneli</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-primary mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="fas fa-microchip me-2"></i>IoT Boshqaruv Tizimi</a>
+            <div class="d-flex">
+                <span class="navbar-text me-3">
+                    Salom, {{ current_user.username }}
+                </span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-light">
+                    <i class="fas fa-sign-out-alt me-2"></i>Chiqish
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Statistika -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Jami Qurilmalar</h5>
+                        <h2 class="display-4">{{ total_devices }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Faol Qurilmalar</h5>
+                        <h2 class="display-4">{{ active_devices }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-secondary text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Excel Yuklash</h5>
+                        <a href="{{ url_for('export_excel') }}" class="btn btn-light mt-2">
+                            <i class="fas fa-file-excel me-2"></i>Yuklab olish
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boshqaruv -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Yangi Hudud Qo'shish</h5>
+                    </div>
+                    <div class="card-body">
+                        <form action="{{ url_for('add_region') }}" method="POST" class="d-flex gap-2">
+                            <input type="text" name="name" class="form-control" placeholder="Viloyat nomi" required>
+                            <button type="submit" class="btn btn-primary">Qo'shish</button>
+                        </form>
+                        <hr>
+                        <form action="{{ url_for('add_district') }}" method="POST" class="d-flex gap-2">
+                            <select name="region_id" class="form-select" required>
+                                <option value="">Viloyatni tanlang</option>
+                                {% for region in regions %}
+                                <option value="{{ region.id }}">{{ region.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="name" class="form-control" placeholder="Tuman nomi" required>
+                            <button type="submit" class="btn btn-primary">Qo'shish</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Filtrlash</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex gap-2">
+                            <select id="filterRegion" class="form-select" onchange="loadDistricts(this.value, 'filterDistrict')">
+                                <option value="">Barcha Viloyatlar</option>
+                                {% for region in regions %}
+                                <option value="{{ region.id }}">{{ region.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <select id="filterDistrict" class="form-select" onchange="filterDevices()">
+                                <option value="">Barcha Tumanlar</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Xarita va Ro'yxat -->
+        <div class="row">
+            <div class="col-md-12 mb-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Qurilmalar Xaritasi</h5>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addDeviceModal">
+                            <i class="fas fa-plus me-2"></i>Qurilma Qo'shish
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Qurilmalar Ro'yxati</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="devicesTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nomi</th>
+                                        <th>Viloyat</th>
+                                        <th>Tuman</th>
+                                        <th>Token</th>
+                                        <th>Holati</th>
+                                        <th>Amallar</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- JavaScript orqali to'ldiriladi -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Device Modal -->
+    <div class="modal fade" id="addDeviceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Yangi Qurilma</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="{{ url_for('add_device') }}" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Qurilma ID</label>
+                            <input type="text" name="device_id" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nomi</label>
+                            <input type="text" name="name" class="form-control" required>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label">Viloyat</label>
+                                <select name="region_id" class="form-select" onchange="loadDistricts(this.value, 'addDeviceDistrict')" required>
+                                    <option value="">Tanlang</option>
+                                    {% for region in regions %}
+                                    <option value="{{ region.id }}">{{ region.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Tuman</label>
+                                <select name="district_id" id="addDeviceDistrict" class="form-select" required>
+                                    <option value="">Tanlang</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label">Latitude</label>
+                                <input type="number" step="any" name="latitude" class="form-control">
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Longitude</label>
+                                <input type="number" step="any" name="longitude" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                        <button type="submit" class="btn btn-primary">Saqlash</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Device Modal -->
+    <div class="modal fade" id="editDeviceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Qurilmani Tahrirlash</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editDeviceForm" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Qurilma ID</label>
+                            <input type="text" name="device_id" id="edit_device_id" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nomi</label>
+                            <input type="text" name="name" id="edit_name" class="form-control" required>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label">Viloyat</label>
+                                <select name="region_id" id="edit_region_id" class="form-select" onchange="loadDistricts(this.value, 'edit_district_id')" required>
+                                    <option value="">Tanlang</option>
+                                    {% for region in regions %}
+                                    <option value="{{ region.id }}">{{ region.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Tuman</label>
+                                <select name="district_id" id="edit_district_id" class="form-select" required>
+                                    <option value="">Tanlang</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label">Latitude</label>
+                                <input type="number" step="any" name="latitude" id="edit_latitude" class="form-control">
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Longitude</label>
+                                <input type="number" step="any" name="longitude" id="edit_longitude" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                        <button type="submit" class="btn btn-primary">Yangilash</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
